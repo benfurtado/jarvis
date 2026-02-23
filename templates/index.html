@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jarvis — AI Operating System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/styles.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- New Dashboard Libraries -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/lib/codemirror.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/theme/dracula.css">
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/lib/codemirror.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/mode/javascript/javascript.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/mode/python/python.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.13/mode/shell/shell.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Outfit', 'sans-serif'] },
+                    colors: {
+                        dark: { 900: '#030712', 800: '#0b1120', 700: '#151e32', 600: '#1e2a45' },
+                        accent: { 400: '#10b981', 500: '#059669', 600: '#047857', glow: 'rgba(16, 185, 129, 0.15)' },
+                        danger: { 400: '#f87171', 500: '#ef4444' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .risk-high {
+            color: #f87171;
+        }
+
+        .risk-medium {
+            color: #fbbf24;
+        }
+
+        .risk-low {
+            color: #10b981;
+        }
+
+        .cat-pill {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .cat-system {
+            background: rgba(99, 102, 241, .15);
+            color: #818cf8;
+        }
+
+        .cat-file {
+            background: rgba(16, 185, 129, .15);
+            color: #10b981;
+        }
+
+        .cat-deploy {
+            background: rgba(249, 115, 22, .15);
+            color: #fb923c;
+        }
+
+        .cat-automation {
+            background: rgba(236, 72, 153, .15);
+            color: #f472b6;
+        }
+
+        .cat-security {
+            background: rgba(239, 68, 68, .15);
+            color: #f87171;
+        }
+
+        .gauge-ring {
+            transition: stroke-dashoffset 0.8s ease;
+        }
+
+        .tool-card:hover {
+            border-color: rgba(16, 185, 129, .3);
+            transform: translateY(-1px);
+        }
+
+        .svc-card {
+            transition: all 0.2s;
+        }
+
+        .svc-card:hover {
+            border-color: rgba(99, 102, 241, .3);
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-up {
+            animation: fadeUp 0.3s ease forwards;
+        }
+
+        /* Terminal and Editor Styles */
+        .terminal-container .xterm {
+            padding: 10px;
+        }
+
+        .CodeMirror {
+            height: 100%;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 13px;
+        }
+
+        /* Tree View Styles */
+        .tree-node {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .tree-node:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tree-indent {
+            border-left: 1px border-dark-700;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-dark-900 text-gray-300 font-light h-screen flex overflow-hidden selection:bg-accent-500 selection:text-white">
+
+    <!-- ===================== LOGIN SCREEN ===================== -->
+    <div id="login-screen" class="fixed inset-0 z-[100] bg-dark-900 flex items-center justify-center">
+        <div class="w-full max-w-sm px-6">
+            <div class="text-center mb-8">
+                <div
+                    class="w-16 h-16 rounded-2xl bg-dark-800 border border-dark-700 flex items-center justify-center mx-auto mb-4 shadow-2xl shadow-accent-glow">
+                    <i class="fa-solid fa-shield-halved text-2xl text-accent-400"></i>
+                </div>
+                <h1 class="text-2xl font-normal text-white">Jarvis</h1>
+                <p class="text-gray-500 text-sm mt-1">AI Operating System</p>
+            </div>
+            <div id="login-form" class="space-y-4">
+                <input id="login-username" type="text" placeholder="Username"
+                    class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white text-sm focus:border-accent-500 focus:ring-1 focus:ring-accent-500/30 transition-all placeholder-gray-600" />
+                <input id="login-password" type="password" placeholder="Password"
+                    class="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white text-sm focus:border-accent-500 focus:ring-1 focus:ring-accent-500/30 transition-all placeholder-gray-600" />
+                <div id="login-error" class="text-danger-400 text-xs hidden"></div>
+                <button id="login-btn" onclick="handleLogin()"
+                    class="w-full bg-accent-500 hover:bg-accent-400 text-white py-3 rounded-lg text-sm font-normal transition-all shadow-lg shadow-accent-500/20">Sign
+                    In</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== MAIN APP ===================== -->
+    <div id="app-container" class="flex w-full h-full hidden">
+
+        <!-- Sidebar -->
+        <aside id="sidebar"
+            class="w-16 md:w-56 bg-dark-800 border-r border-dark-700 flex flex-col h-full transition-all duration-300 flex-shrink-0">
+            <div class="h-14 border-b border-dark-700 flex items-center px-4 gap-3">
+                <div
+                    class="w-8 h-8 rounded bg-accent-500/10 flex items-center justify-center text-accent-400 flex-shrink-0">
+                    <i class="fa-solid fa-cube text-sm"></i>
+                </div>
+                <span class="text-white text-sm font-normal hidden md:block">Jarvis OS</span>
+            </div>
+            <button onclick="switchTab('home')" data-tab="home"
+                class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all">
+                <i class="fa-solid fa-house text-sm w-5 text-center"></i><span class="hidden md:block">Home</span>
+            </button>
+            <button onclick="switchTab('chat')" data-tab="chat"
+                class="sidebar-btn active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all">
+                <i class="fa-solid fa-message text-sm w-5 text-center"></i><span class="hidden md:block">Chat</span>
+            </button>
+            <button onclick="switchTab('terminal')" data-tab="terminal"
+                class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all">
+                <i class="fa-solid fa-terminal text-sm w-5 text-center"></i><span
+                    class="hidden md:block">Terminal</span>
+            </button>
+            <button onclick="switchTab('monitor')" data-tab="monitor"
+                class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all">
+                <i class="fa-solid fa-gauge-high text-sm w-5 text-center"></i><span
+                    class="hidden md:block">System</span>
+            </button>
+            <button onclick="switchTab('docker')" data-tab="docker"
+                class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all">
+                <i class="fa-brands fa-docker text-sm w-5 text-center"></i><span class="hidden md:block">Docker</span>
+            </button>
+            <button onclick="switchTab('network')" data-tab="network"
+                class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all">
+                <i class="fa-solid fa-shield text-sm w-5 text-center"></i><span class="hidden md:block">Network</span>
+            </button>
+            <button onclick="switchTab('files')" data-tab="files"
+                class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all">
+                <i class="fa-solid fa-folder text-sm w-5 text-center"></i><span class="hidden md:block">Files</span>
+            </button>
+            <button onclick="switchTab('packages')" data-tab="packages"
+                class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all">
+                <i class="fa-solid fa-box-open text-sm w-5 text-center"></i><span
+                    class="hidden md:block">Packages</span>
+            </button>
+            <button onclick="switchTab('tools')" data-tab="tools"
+                class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all">
+                <i class="fa-solid fa-wrench text-sm w-5 text-center"></i><span class="hidden md:block">Tools</span>
+            </button>
+            <button onclick="switchTab('security')" data-tab="security"
+                class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all">
+                <i class="fa-solid fa-user-shield text-sm w-5 text-center"></i><span
+                    class="hidden md:block">Security</span>
+            </button>
+            <button onclick="switchTab('database')" data-tab="database"
+                class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all">
+                <i class="fa-solid fa-database text-sm w-5 text-center"></i><span
+                    class="hidden md:block">Database</span>
+            </button>
+            <div class="pt-4 pb-1 px-3">
+                <span class="text-[10px] text-gray-500 uppercase tracking-widest hidden md:block">Events</span>
+            </div>
+            <button onclick="switchTab('scheduler')" data-tab="scheduler"
+                class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all">
+                <i class="fa-solid fa-clock text-sm w-5 text-center"></i><span class="hidden md:block">Scheduler</span>
+            </button>
+            <button onclick="switchTab('audit')" data-tab="audit"
+                class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all">
+                <i class="fa-solid fa-scroll text-sm w-5 text-center"></i><span class="hidden md:block">Audit</span>
+            </button>
+            <button onclick="switchTab('settings')" data-tab="settings"
+                class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all">
+                <i class="fa-solid fa-gear text-sm w-5 text-center"></i><span class="hidden md:block">Settings</span>
+            </button>
+            </nav>
+            <div id="approval-badge-container" class="px-2 pb-2 hidden">
+                <button onclick="switchTab('approvals')" data-tab="approvals"
+                    class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm bg-danger-500/10 border border-danger-500/20 transition-all">
+                    <i class="fa-solid fa-triangle-exclamation text-danger-400 text-sm w-5 text-center"></i>
+                    <span class="hidden md:block text-danger-400">Approvals</span>
+                    <span id="approval-count"
+                        class="ml-auto bg-danger-500 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center hidden md:flex">0</span>
+                </button>
+            </div>
+            <div class="border-t border-dark-700 p-3 flex items-center gap-3">
+                <div
+                    class="w-8 h-8 rounded-full bg-dark-700 flex items-center justify-center text-gray-400 flex-shrink-0">
+                    <i class="fa-solid fa-user text-xs"></i>
+                </div>
+                <div class="hidden md:block flex-1 min-w-0">
+                    <p id="user-display" class="text-xs text-white truncate">admin</p>
+                    <button onclick="handleLogout()"
+                        class="text-[10px] text-gray-500 hover:text-danger-400 transition-colors">Logout</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col h-full relative bg-dark-900 overflow-hidden">
+
+            <!-- ===== CHAT TAB ===== -->
+            <div id="tab-chat" class="tab-panel flex h-full">
+                <!-- Chat Sidebar -->
+                <div id="chat-sidebar"
+                    class="w-64 border-r border-dark-700 bg-dark-800/50 flex flex-col flex-shrink-0 h-full">
+                    <div class="p-3 border-b border-dark-700">
+                        <button onclick="createNewChat()"
+                            class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-accent-500/10 border border-accent-500/20 text-accent-400 text-xs hover:bg-accent-500/20 transition-all">
+                            <i class="fa-solid fa-plus text-[10px]"></i> New Chat
+                        </button>
+                    </div>
+                    <div id="chat-list" class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                        <p class="text-gray-600 text-[10px] text-center py-4">No chats yet</p>
+                    </div>
+                </div>
+                <!-- Chat Main Area -->
+                <div class="flex-1 flex flex-col h-full min-w-0">
+                    <header class="border-b border-dark-700 bg-dark-900/90 backdrop-blur-sm flex-shrink-0">
+                        <div class="h-14 flex items-center px-6 justify-between">
+                            <h2 id="chat-title-header" class="text-sm font-normal text-white truncate">AI Chat</h2>
+                            <button id="delete-chat-btn" onclick="deleteCurrentChat()"
+                                class="text-gray-500 hover:text-danger-400 text-xs transition-colors hidden"
+                                title="Delete chat">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-2 px-6 py-2 bg-dark-800/50 border-t border-dark-700/50">
+                            <i class="fa-solid fa-folder-open text-accent-400 text-xs"></i>
+                            <span class="text-[10px] text-gray-500 uppercase tracking-wider">CWD</span>
+                            <input id="cwd-input" type="text" value="/root/projects"
+                                class="flex-1 bg-dark-900/50 border border-dark-700/50 rounded px-3 py-1 text-xs text-accent-400 font-mono focus:border-accent-500/50 transition-all"
+                                onchange="updateCwd(this.value)" />
+                            <button onclick="updateCwd(document.getElementById('cwd-input').value)"
+                                class="text-[10px] text-gray-500 hover:text-accent-400 transition-colors px-1.5 py-1 rounded hover:bg-dark-700"><i
+                                    class="fa-solid fa-check"></i></button>
+                        </div>
+                    </header>
+                    <div id="chat-container" class="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-6 py-6">
+                        <div id="chat-messages" class="max-w-3xl mx-auto space-y-6">
+                            <div id="chat-welcome" class="text-center py-8 fade-up">
+                                <div
+                                    class="w-14 h-14 rounded-2xl bg-dark-800 border border-dark-700 flex items-center justify-center mx-auto mb-4 shadow-2xl shadow-black">
+                                    <i class="fa-solid fa-wand-magic-sparkles text-xl text-accent-400"></i>
+                                </div>
+                                <h2 class="text-xl font-light text-white mb-1">How can I help you?</h2>
+                                <p class="text-gray-500 font-light text-xs">59 tools · System · Files · Deploy ·
+                                    Automation
+                                    · Security · Communication · WordPress · Email</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="border-t border-dark-700 p-4 flex-shrink-0">
+                        <div class="max-w-3xl mx-auto">
+                            <div class="relative group">
+                                <div
+                                    class="absolute -inset-0.5 bg-accent-500/20 rounded-lg blur opacity-0 group-focus-within:opacity-100 transition duration-500">
+                                </div>
+                                <div
+                                    class="relative flex items-end gap-2 bg-dark-800 border border-dark-700 rounded-lg p-2 focus-within:border-accent-500/50 transition-all">
+                                    <textarea id="user-input" rows="1"
+                                        class="w-full bg-transparent border-0 text-white placeholder-gray-600 focus:ring-0 resize-none py-2 px-1 font-light text-sm max-h-32 custom-scrollbar"
+                                        placeholder="Type a message..."></textarea>
+                                    <button id="send-button"
+                                        class="p-2 bg-accent-500 hover:bg-accent-400 text-white transition-colors rounded-md h-10 w-10 flex items-center justify-center shadow-lg shadow-accent-500/20 flex-shrink-0"><i
+                                            class="fa-solid fa-arrow-up"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== SYSTEM MONITOR TAB ===== -->
+            <div id="tab-monitor" class="tab-panel hidden flex flex-col h-full">
+                <header
+                    class="h-14 border-b border-dark-700 flex items-center justify-between px-6 bg-dark-900/90 backdrop-blur-sm flex-shrink-0">
+                    <h2 class="text-sm font-normal text-white"><i
+                            class="fa-solid fa-gauge-high text-accent-400 mr-2"></i>System Monitor</h2>
+                    <div class="flex items-center gap-3">
+                        <span id="health-badge"
+                            class="text-[10px] px-2 py-0.5 rounded-full bg-accent-500/10 text-accent-400">HEALTHY</span>
+                        <button onclick="refreshSystemStatus()"
+                            class="text-xs text-accent-400 hover:text-accent-300 transition-colors"><i
+                                class="fa-solid fa-refresh mr-1"></i>Refresh</button>
+                    </div>
+                </header>
+                <div id="monitor-content" class="flex-1 overflow-y-auto custom-scrollbar p-6">
+                    <p class="text-gray-500 text-sm animate-pulse">Loading system status...</p>
+                </div>
+            </div>
+
+            <!-- ===== TOOLS REGISTRY TAB ===== -->
+            <div id="tab-tools" class="tab-panel hidden flex flex-col h-full">
+                <header
+                    class="h-14 border-b border-dark-700 flex items-center justify-between px-6 bg-dark-900/90 backdrop-blur-sm flex-shrink-0">
+                    <h2 class="text-sm font-normal text-white"><i
+                            class="fa-solid fa-wrench text-accent-400 mr-2"></i>Tools Registry</h2>
+                    <div class="flex items-center gap-2">
+                        <input id="tool-search" type="text" placeholder="Search tools..."
+                            class="bg-dark-800 border border-dark-700 rounded px-3 py-1.5 text-xs text-white w-40 focus:border-accent-500/50 transition-all"
+                            oninput="filterTools()" />
+                        <select id="tool-cat-filter"
+                            class="bg-dark-800 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:border-accent-500/50"
+                            onchange="filterTools()">
+                            <option value="all">All Categories</option>
+                            <option value="system">System</option>
+                            <option value="file">File</option>
+                            <option value="deploy">Deploy</option>
+                            <option value="automation">Automation</option>
+                            <option value="security">Security</option>
+                        </select>
+                        <select id="tool-risk-filter"
+                            class="bg-dark-800 border border-dark-700 rounded px-2 py-1.5 text-xs text-white focus:border-accent-500/50"
+                            onchange="filterTools()">
+                            <option value="all">All Risks</option>
+                            <option value="LOW">Low</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="HIGH">High</option>
+                        </select>
+                        <button onclick="runSelfTest()"
+                            class="text-xs text-accent-400 hover:text-accent-300 transition-colors px-2 py-1.5 rounded hover:bg-dark-700"><i
+                                class="fa-solid fa-vial mr-1"></i>Self-Test</button>
+                    </div>
+                </header>
+                <div id="tools-content" class="flex-1 overflow-y-auto custom-scrollbar p-6">
+                    <p class="text-gray-500 text-sm animate-pulse">Loading tools...</p>
+                </div>
+            </div>
+
+            <!-- ===== SERVICES TAB ===== -->
+            <div id="tab-services" class="tab-panel hidden flex flex-col h-full">
+                <header
+                    class="h-14 border-b border-dark-700 flex items-center justify-between px-6 bg-dark-900/90 backdrop-blur-sm flex-shrink-0">
+                    <h2 class="text-sm font-normal text-white"><i
+                            class="fa-solid fa-server text-accent-400 mr-2"></i>Services</h2>
+                    <button onclick="refreshServices()"
+                        class="text-xs text-accent-400 hover:text-accent-300 transition-colors"><i
+                            class="fa-solid fa-refresh mr-1"></i>Refresh</button>
+                </header>
+                <div id="services-content" class="flex-1 overflow-y-auto custom-scrollbar p-6">
+                    <p class="text-gray-500 text-sm animate-pulse">Loading services...</p>
+                </div>
+            </div>
+
+            <!-- ===== FILES TAB (Enhanced) ===== -->
+            <div id="tab-files" class="tab-panel hidden flex flex-col h-full bg-dark-900">
+                <header class="h-14 border-b border-dark-700 flex items-center justify-between px-6 flex-shrink-0">
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-sm font-normal text-white"><i
+                                class="fa-solid fa-folder text-accent-400 mr-2"></i>Explorer</h2>
+                        <div id="file-breadcrumbs" class="flex items-center gap-1 text-[10px] text-gray-500"></div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="createNewFile()"
+                            class="text-xs bg-dark-800 border border-dark-700 px-2 py-1 rounded hover:bg-dark-700"><i
+                                class="fa-solid fa-file-circle-plus"></i></button>
+                        <button onclick="uploadFileModal()"
+                            class="text-xs bg-dark-800 border border-dark-700 px-2 py-1 rounded hover:bg-dark-700"><i
+                                class="fa-solid fa-upload"></i></button>
+                    </div>
+                </header>
+                <div class="flex-1 flex overflow-hidden">
+                    <div id="file-tree" class="w-64 border-r border-dark-700 overflow-y-auto p-2 text-xs select-none">
+                    </div>
+                    <div id="file-browser-container" class="flex-1 flex flex-col overflow-hidden">
+                        <div id="files-content"
+                            class="flex-1 overflow-y-auto p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                        </div>
+                        <div id="file-editor-container" class="hidden absolute inset-0 z-50 bg-dark-900 flex flex-col">
+                            <header
+                                class="h-10 bg-dark-800 border-b border-dark-700 flex items-center justify-between px-4">
+                                <span id="editor-filename" class="text-xs text-white font-mono">new_file.py</span>
+                                <div class="flex gap-2">
+                                    <button onclick="saveFile()"
+                                        class="text-[10px] bg-accent-500 px-2 py-1 rounded text-white">Save</button>
+                                    <button onclick="closeEditor()"
+                                        class="text-[10px] bg-dark-700 px-2 py-1 rounded text-gray-400">Close</button>
+                                </div>
+                            </header>
+                            <div id="editor-wrapper" class="flex-1 overflow-hidden"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== SCHEDULER TAB ===== -->
+            <div id="tab-scheduler" class="tab-panel hidden flex flex-col h-full">
+                <header
+                    class="h-14 border-b border-dark-700 flex items-center justify-between px-6 bg-dark-900/90 backdrop-blur-sm flex-shrink-0">
+                    <h2 class="text-sm font-normal text-white"><i
+                            class="fa-solid fa-clock text-accent-400 mr-2"></i>Task Scheduler</h2>
+                    <button onclick="refreshScheduler()"
+                        class="text-xs text-accent-400 hover:text-accent-300 transition-colors"><i
+                            class="fa-solid fa-refresh mr-1"></i>Refresh</button>
+                </header>
+                <div id="scheduler-content" class="flex-1 overflow-y-auto custom-scrollbar p-6">
+                    <p class="text-gray-500 text-sm animate-pulse">Loading tasks...</p>
+                </div>
+            </div>
+
+            <!-- ===== AUDIT LOG TAB ===== -->
+            <div id="tab-audit" class="tab-panel hidden flex flex-col h-full">
+                <header
+                    class="h-14 border-b border-dark-700 flex items-center justify-between px-6 bg-dark-900/90 backdrop-blur-sm flex-shrink-0">
+                    <h2 class="text-sm font-normal text-white"><i
+                            class="fa-solid fa-scroll text-accent-400 mr-2"></i>Audit Logs</h2>
+                    <button onclick="refreshAuditLogs()"
+                        class="text-xs text-accent-400 hover:text-accent-300 transition-colors"><i
+                            class="fa-solid fa-refresh mr-1"></i>Refresh</button>
+                </header>
+                <div id="audit-content" class="flex-1 overflow-y-auto custom-scrollbar p-6">
+                    <p class="text-gray-500 text-sm animate-pulse">Loading audit logs...</p>
+                </div>
+            </div>
+
+            <!-- ===== HOME TAB ===== -->
+            <div id="tab-home" class="tab-panel hidden flex flex-col h-full bg-dark-900">
+                <header class="h-14 border-b border-dark-700 flex items-center px-6 flex-shrink-0">
+                    <h2 class="text-sm font-normal text-white"><i
+                            class="fa-solid fa-house text-accent-400 mr-2"></i>Dashboard Overview</h2>
+                </header>
+                <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                    <div id="home-stats-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-dark-800 border border-dark-700 rounded-lg p-4">
+                            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Resource
+                                History</h3>
+                            <canvas id="resource-chart" class="w-full h-48"></canvas>
+                        </div>
+                        <div class="bg-dark-800 border border-dark-700 rounded-lg p-4">
+                            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Recent
+                                Activity</h3>
+                            <div id="home-activity-list" class="space-y-3"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== TERMINAL TAB ===== -->
+            <div id="tab-terminal" class="tab-panel hidden flex flex-col h-full bg-[#0c0c0c]">
+                <header class="h-10 border-b border-[#222] flex items-center justify-between px-4 flex-shrink-0">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-terminal text-xs text-gray-500"></i>
+                        <span class="text-[10px] text-gray-400 uppercase tracking-widest">Web Terminal</span>
+                    </div>
+                    <button onclick="reconnectTerminal()" class="text-[10px] text-gray-500 hover:text-white"><i
+                            class="fa-solid fa-sync mr-1"></i>Reset</button>
+                </header>
+                <div id="terminal-container" class="flex-1 terminal-container overflow-hidden"></div>
+            </div>
+
+            <!-- ===== DOCKER TAB ===== -->
+            <div id="tab-docker" class="tab-panel hidden flex flex-col h-full bg-dark-900">
+                <header class="h-14 border-b border-dark-700 flex items-center justify-between px-6 flex-shrink-0">
+                    <h2 class="text-sm font-normal text-white"><i
+                            class="fa-brands fa-docker text-accent-400 mr-2"></i>Docker</h2>
+                    <button onclick="refreshDocker()" class="text-xs text-accent-400">Refresh</button>
+                </header>
+                <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                    <div id="docker-containers" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </div>
+            </div>
+
+            <!-- ===== NETWORK TAB ===== -->
+            <div id="tab-network" class="tab-panel hidden flex flex-col h-full bg-dark-900">
+                <header class="h-14 border-b border-dark-700 flex items-center justify-between px-6 flex-shrink-0">
+                    <h2 class="text-sm font-normal text-white"><i
+                            class="fa-solid fa-shield-halved text-accent-400 mr-2"></i>Network</h2>
+                    <button onclick="refreshNetwork()" class="text-xs text-accent-400">Refresh</button>
+                </header>
+                <div class="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div id="ufw-rules" class="bg-dark-800 border border-dark-700 rounded-lg p-4"></div>
+                    <div id="net-connections" class="bg-dark-800 border border-dark-700 rounded-lg p-4"></div>
+                </div>
+            </div>
+
+            <!-- ===== SECURITY TAB ===== -->
+            <div id="tab-security" class="tab-panel hidden flex flex-col h-full bg-dark-900">
+                <header class="h-14 border-b border-dark-700 flex items-center justify-between px-6 flex-shrink-0">
+                    <h2 class="text-sm font-normal text-white"><i
+                            class="fa-solid fa-user-shield text-accent-400 mr-2"></i>Security Center</h2>
+                    <button onclick="refreshSecurity()" class="text-xs text-accent-400">Audit</button>
+                </header>
+                <div id="security-content" class="flex-1 overflow-y-auto p-6 space-y-6"></div>
+            </div>
+
+            <!-- ===== PACKAGES TAB ===== -->
+            <div id="tab-packages" class="tab-panel hidden flex flex-col h-full bg-dark-900">
+                <header class="h-14 border-b border-dark-700 flex items-center justify-between px-6 flex-shrink-0">
+                    <h2 class="text-sm font-normal text-white"><i
+                            class="fa-solid fa-box-open text-accent-400 mr-2"></i>Packages & Cron</h2>
+                    <button onclick="refreshPackages()" class="text-xs text-accent-400">Refresh</button>
+                </header>
+                <div id="packages-content" class="flex-1 overflow-y-auto p-6 space-y-6"></div>
+            </div>
+
+            <!-- ===== DATABASE TAB ===== -->
+            <div id="tab-database" class="tab-panel hidden flex flex-col h-full bg-dark-900">
+                <header class="h-14 border-b border-dark-700 flex items-center justify-between px-6 flex-shrink-0">
+                    <h2 class="text-sm font-normal text-white"><i
+                            class="fa-solid fa-database text-accent-400 mr-2"></i>Database Browser</h2>
+                </header>
+                <div id="database-content" class="flex-1 overflow-y-auto p-6"></div>
+            </div>
+
+            <!-- ===== APPROVALS TAB ===== -->
+            <div id="tab-approvals" class="tab-panel hidden flex flex-col h-full">
+                <header
+                    class="h-14 border-b border-dark-700 flex items-center px-6 bg-dark-900/90 backdrop-blur-sm flex-shrink-0">
+                    <h2 class="text-sm font-normal text-white"><i
+                            class="fa-solid fa-triangle-exclamation text-danger-400 mr-2"></i>Pending Approvals</h2>
+                </header>
+                <div id="approvals-content" class="flex-1 overflow-y-auto custom-scrollbar p-6">
+                    <p class="text-gray-500 text-sm">No pending approvals.</p>
+                </div>
+            </div>
+
+            <!-- ===== SETTINGS TAB ===== -->
+            <div id="tab-settings" class="tab-panel hidden flex flex-col h-full">
+                <header
+                    class="h-14 border-b border-dark-700 flex items-center justify-between px-6 bg-dark-900/90 backdrop-blur-sm flex-shrink-0">
+                    <h2 class="text-sm font-normal text-white"><i
+                            class="fa-solid fa-gear text-accent-400 mr-2"></i>Settings Center</h2>
+                    <button onclick="saveAllSettings()"
+                        class="bg-accent-500 hover:bg-accent-400 text-white px-4 py-1.5 rounded-lg text-xs transition-all shadow-lg shadow-accent-500/20">
+                        Save Changes
+                    </button>
+                </header>
+                <div class="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Communication Config -->
+                        <div class="card p-5">
+                            <h3 class="text-sm font-medium text-white mb-4 flex items-center">
+                                <i class="fa-solid fa-envelope-open-text text-accent-500 mr-2"></i> Communication (SMTP)
+                            </h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">SMTP
+                                        Host</label>
+                                    <input type="text" id="setting-smtp-host" placeholder="smtp.gmail.com"
+                                        class="w-full bg-dark-900/50 border border-dark-700 rounded-lg px-3 py-2 text-white text-sm focus:border-accent-500 focus:ring-0 transition-all">
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label
+                                            class="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">Port</label>
+                                        <input type="number" id="setting-smtp-port" placeholder="587"
+                                            class="w-full bg-dark-900/50 border border-dark-700 rounded-lg px-3 py-2 text-white text-sm focus:border-accent-500 focus:ring-0 transition-all">
+                                    </div>
+                                    <div>
+                                        <label
+                                            class="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">User</label>
+                                        <input type="text" id="setting-smtp-user" placeholder="jarvis@example.com"
+                                            class="w-full bg-dark-900/50 border border-dark-700 rounded-lg px-3 py-2 text-white text-sm focus:border-accent-500 focus:ring-0 transition-all">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label
+                                        class="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">Password</label>
+                                    <input type="password" id="setting-smtp-pass" placeholder="••••••••"
+                                        class="w-full bg-dark-900/50 border border-dark-700 rounded-lg px-3 py-2 text-white text-sm focus:border-accent-500 focus:ring-0 transition-all">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- WordPress Config -->
+                        <div class="card p-5">
+                            <h3 class="text-sm font-medium text-white mb-4 flex items-center">
+                                <i class="fa-brands fa-wordpress text-accent-500 mr-2"></i> WordPress Integration
+                            </h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">Site
+                                        URL</label>
+                                    <input type="text" id="setting-wp-url" placeholder="https://mysite.com"
+                                        class="w-full bg-dark-900/50 border border-dark-700 rounded-lg px-3 py-2 text-white text-sm focus:border-accent-500 focus:ring-0 transition-all">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">Root
+                                        Path</label>
+                                    <input type="text" id="setting-wp-path" placeholder="/var/www/html"
+                                        class="w-full bg-dark-900/50 border border-dark-700 rounded-lg px-3 py-2 text-white text-sm focus:border-accent-500 focus:ring-0 transition-all">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- AI / API Keys -->
+                        <div class="card p-5">
+                            <h3 class="text-sm font-medium text-white mb-4 flex items-center">
+                                <i class="fa-solid fa-brain text-accent-500 mr-2"></i> AI & Integrations
+                            </h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">Groq
+                                        Override</label>
+                                    <input type="password" id="setting-groq-key" placeholder="gsk_••••"
+                                        class="w-full bg-dark-900/50 border border-dark-700 rounded-lg px-3 py-2 text-white text-sm focus:border-accent-500 focus:ring-0 transition-all">
+                                </div>
+                                <div>
+                                    <label
+                                        class="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5">Webhook
+                                        URL</label>
+                                    <input type="text" id="setting-webhook-url" placeholder="https://discord.com/..."
+                                        class="w-full bg-dark-900/50 border border-dark-700 rounded-lg px-3 py-2 text-white text-sm focus:border-accent-500 focus:ring-0 transition-all">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bot Personality -->
+                        <div class="card p-5">
+                            <h3 class="text-sm font-medium text-white mb-4 flex items-center">
+                                <i class="fa-solid fa-robot text-accent-500 mr-2"></i> Bot Behavior
+                            </h3>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-white">Proactive Execution</p>
+                                        <p class="text-[10px] text-gray-500 uppercase tracking-widest">Enable automatic
+                                            tool chains</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="setting-proactive" class="sr-only peer" checked>
+                                        <div
+                                            class="w-10 h-5 bg-dark-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent-500">
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===================== APPROVAL MODAL ===================== -->
+    <div id="approval-modal"
+        class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center hidden">
+        <div class="bg-dark-800 border border-dark-700 rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-danger-500/10 flex items-center justify-center"><i
+                        class="fa-solid fa-shield-halved text-danger-400"></i></div>
+                <div>
+                    <h3 class="text-white text-sm font-normal">Approval Required</h3>
+                    <p class="text-gray-500 text-xs">HIGH risk tool execution</p>
+                </div>
+            </div>
+            <div id="approval-modal-body" class="bg-dark-900 rounded-lg p-4 mb-4 text-sm">
+                <p class="text-gray-400"><strong class="text-white">Tool:</strong> <span id="modal-tool-name"></span>
+                </p>
+                <p class="text-gray-400 mt-2"><strong class="text-white">Details:</strong></p>
+                <pre id="modal-args-preview" class="text-accent-400 text-xs mt-1 whitespace-pre-wrap"></pre>
+            </div>
+            <div class="flex gap-3">
+                <button id="modal-deny-btn"
+                    class="flex-1 py-2.5 rounded-lg bg-dark-700 hover:bg-dark-600 text-gray-300 text-sm transition-all"><i
+                        class="fa-solid fa-xmark mr-1"></i> Deny</button>
+                <button id="modal-approve-btn"
+                    class="flex-1 py-2.5 rounded-lg bg-accent-500 hover:bg-accent-400 text-white text-sm transition-all shadow-lg shadow-accent-500/20"><i
+                        class="fa-solid fa-check mr-1"></i> Approve</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+
+</html>

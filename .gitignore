@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# Environment
+.env
+
+# Project specific
+temp/
+jarvis.db
+jarvis.db-shm
+jarvis.db-wal
+jarvis_memory.db
+jarvis_memory.db-shm
+jarvis_memory.db-wal
+memory.db
+memory.db-shm
+memory.db-wal
+jarvis.log
+episodic_memory.json
+old/
+
+# Sensitive data
+token.json
+credentials.json
+gmail_data/
+token.txt
+*.bak
+ENVFILE
+nohup.out
+server.log
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

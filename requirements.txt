@@ -1,0 +1,39 @@
+# Core
+flask
+flask-cors
+flask-jwt-extended
+flask-limiter
+flask-socketio
+eventlet
+
+# AI / LLM
+langchain
+langchain-groq
+langgraph
+langchain_community
+langgraph-checkpoint-sqlite
+
+# Auth & Security
+bcrypt
+pyotp
+qrcode[pil]
+python-dotenv
+
+# Tools
+mss
+pillow
+psutil
+websocket-client
+apscheduler
+
+# Gmail API
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+
+# Notifications
+requests
+
+# Optional (vector memory) — install manually if needed:
+# faiss-cpu
+# sentence-transformers
