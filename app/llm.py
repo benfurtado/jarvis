@@ -41,6 +41,7 @@ class RotatingLLM:
     def invoke(self, messages, **kwargs):
         first_key_idx = self.current_key_idx
         first_model_idx = self.current_model_idx
+        import time
         
         while True:
             try:
@@ -49,20 +50,20 @@ class RotatingLLM:
             except Exception as e:
                 error_str = str(e)
                 # Handle 429 (Rate Limit), 413 (Token Limit), and 400 (Incorrect model for tool calling)
-                is_retryable = (
-                    "429" in error_str or 
-                    "413" in error_str or
-                    "rate_limit" in error_str.lower() or
-                    "request too large" in error_str.lower() or
-                    "tokens per minute" in error_str.lower() or
-                    ("400" in error_str and "tool calling" in error_str.lower())
-                )
+                rate_limit_indicators = [
+                    "429", "rate_limit", "tokens per minute", "requests per minute",
+                    "RPM", "TPM", "TPD", "tokens per day", "request too large", "413"
+                ]
+                
+                is_retryable = any(ind in error_str.lower() for ind in rate_limit_indicators) or \
+                               ("400" in error_str and "tool calling" in error_str.lower())
                 
                 if is_retryable:
-                    error_type = "Tool calling not supported" if "tool calling" in error_str.lower() else "Limit hit"
+                    error_type = "Tool calling not supported" if "tool calling" in error_str.lower() else "Rate limit hit"
+                    current_model = self.models[self.current_model_idx]
+                    
                     logger.warning(
-                        f"{error_type} (Error: {error_str[:100]}) for model {self.models[self.current_model_idx]} "
-                        f"(Key index {self.current_key_idx}). Rotating..."
+                        f"{error_type} for model {current_model}. Rotating..."
                     )
                     
                     # Try next model
@@ -75,8 +76,11 @@ class RotatingLLM:
                     # If we are back to the original key and model, stop
                     if (self.current_key_idx == first_key_idx and 
                         self.current_model_idx == first_model_idx):
-                        logger.error("Cycled through all keys and models. No suitable model found for this request.")
+                        logger.error(f"Cycled through all {len(self.api_keys)} keys and {len(self.models)} models. FAILED.")
                         raise e
+                    
+                    # Small sleep before retry to give the provider/balancer a moment
+                    time.sleep(2)
                 else:
                     raise e
 

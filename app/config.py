@@ -24,18 +24,14 @@ class Config:
     GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
     GROQ_API_KEYS = [k.strip() for k in os.getenv("GROQ_API_KEYS", GROQ_API_KEY).split(",") if k.strip()]
     
-    LLM_MODEL = os.getenv("LLM_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+    LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
     LLM_MODELS = [m.strip() for m in os.getenv("LLM_MODELS", (
-        "meta-llama/llama-4-scout-17b-16e-instruct,"
-        "groq/compound,"
-        "groq/compound-mini,"
         "llama-3.3-70b-versatile,"
-        "moonshotai/kimi-k2-instruct,"
-        "openai/gpt-oss-120b,"
-        "meta-llama/llama-4-maverick-17b-128e-instruct,"
+        "llama-3.1-70b-versatile,"
+        "llama-3.2-90b-vision-preview,"
+        "mixtral-8x7b-32768,"
         "llama-3.1-8b-instant,"
-        "qwen/qwen3-32b,"
-        "allam-2-7b"
+        "gemma2-9b-it"
     )).split(",") if m.strip()]
 
     # Admin
@@ -95,6 +91,7 @@ class Config:
         "npm", "pip", "git", "wget", "curl", "cd", "kill", "zip",
         "backup", "schedule", "scan", "open port", "close port",
         "email", "send email", "inbox", "reply", "mail", "fetch emails",
+        "search web", "google", "lookup", "find news", "web search", "browse",
     ]
 
     # Temp directory for screenshots, backups, etc.

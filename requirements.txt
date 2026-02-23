@@ -25,6 +25,7 @@ pillow
 psutil
 websocket-client
 apscheduler
+selenium
 
 # Gmail API
 google-api-python-client
@@ -37,3 +38,5 @@ requests
 # Optional (vector memory) — install manually if needed:
 # faiss-cpu
 # sentence-transformers
+duckduckgo-search
+webdriver-manager

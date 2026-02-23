@@ -70,6 +70,7 @@ def load_all_tool_modules():
     from app import communication_tools# noqa: F401
     from app import wordpress_tools    # noqa: F401
     from app import email_tools        # noqa: F401
+    from app import web_tools          # noqa: F401
     logger.info(f"TOOL_REGISTRY loaded: {len(TOOL_REGISTRY)} tools across "
                 f"{len(set(e['category'] for e in TOOL_REGISTRY.values()))} categories")
     # Debug: print all registered tool names

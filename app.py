@@ -21,6 +21,7 @@ from flask import Flask, render_template, request, jsonify, send_from_directory
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage, BaseMessage, ToolMessage
 from langchain_core.tools import tool
+from app.web_tools import search_web, read_website_content
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.sqlite import SqliteSaver
@@ -519,7 +520,12 @@ def check_social_status(thread_id_ref: str = "current") -> str:
     return json.dumps(response)
 
 # --- LangGraph Setup ---
-ALL_TOOLS = [run_terminal_command, take_screenshot, send_social_message, check_social_status, send_email, fetch_emails, classify_and_process_emails, download_website]
+ALL_TOOLS = [
+    run_terminal_command, take_screenshot, send_social_message, 
+    check_social_status, send_email, fetch_emails, 
+    classify_and_process_emails, download_website,
+    search_web, read_website_content
+]
 
 class State(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
