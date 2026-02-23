@@ -67,14 +67,22 @@ def build_agent():
 
     def agent_node(state: AgentState):
         summary = state.get("summary", "")
+        base_messages = state["messages"]
+        
+        # Ensure base_messages doesn't start with AIMessage or ToolMessage
+        # (common after pruning). LangGraph/Groq needs Human/System first.
+        if base_messages and not isinstance(base_messages[0], HumanMessage):
+            # If the first message is AI or Tool, prepend a generic context-filler
+            base_messages = [HumanMessage(content="Continuing from previous context...")] + base_messages
+
         if summary:
             # Inject summary as a system reminder of past context
             messages = [
                 SystemMessage(content=SYSTEM_PROMPT),
                 SystemMessage(content=f"SUMMARY OF PAST CONVERSATION: {summary}")
-            ] + state["messages"]
+            ] + base_messages
         else:
-            messages = [SystemMessage(content=SYSTEM_PROMPT)] + state["messages"]
+            messages = [SystemMessage(content=SYSTEM_PROMPT)] + base_messages
             
         response = llm_rotator.invoke(messages)
         return {"messages": [response]}
@@ -182,28 +190,58 @@ def process_chat(graph, user_message: str, thread_id: str,
     extra_data = {}
 
     try:
-        # ---- MEMORY COMPRESSION (SUMMARIZATION) ----
+        # ---- LONG-TERM MEMORY SUMMARIZATION ----
         state = graph.get_state(config)
         messages_state = state.values.get("messages", [])
-        summary = state.values.get("summary", "")
+        summary = state.values.get("summary", "No previous memory.")
 
-        # If history gets too long (> 15 messages), compress it
-        if len(messages_state) > 15:
-            logger.info(f"Thread {thread_id}: Summarizing history...")
-            summary_prompt = (
-                f"Previous summary: {summary}\n\n"
-                "Compress the key events from the chat history below into a concise summary paragraph. "
-                "Focus on what JARVIS has accomplished and what the user's current project state is. "
-                "Keep it efficient for JARVIS to read."
-            )
-            raw_llm = RotatingLLM()
-            sum_msgs = [SystemMessage(content=summary_prompt)] + messages_state
-            summary = raw_llm.invoke(sum_msgs).content
+        # If history gets too long (> 10 turns), compress it to prevent context overflow (400 error)
+        if len(messages_state) > 10:
+            logger.info(f"Thread {thread_id}: Context pressure high. Compressing memory...")
             
-            # Prune old messages from state
-            prune_msg = [RemoveMessage(id=m.id) for m in messages_state[:-5]]
-            graph.update_state(config, {"messages": prune_msg, "summary": summary})
-            logger.info(f"Thread {thread_id}: Memory compressed.")
+            # Prune input to summarizer: context window safety
+            # If the history itself is massive, take only the last 15 messages for the summary update
+            sum_input = messages_state[-15:] if len(messages_state) > 15 else messages_state
+
+            # Use EXACT prompt from user request
+            recursive_memory_prompt = f"""You are updating a user's long-term memory summary.
+
+Existing summary:
+{summary}
+
+New conversation:
+{sum_input}
+
+Instructions:
+- Merge new important information into the existing summary
+- Keep it concise and factual
+- Remove outdated or conflicting info
+- Ignore small talk
+- Preserve important long-term facts
+
+Output rules:
+- Max 5 sentences
+- Third person
+- Return only the updated summary"""
+
+            raw_llm = RotatingLLM()
+            
+            # CRITICAL FIX: Ensure last message is 'user' for Groq
+            sum_msgs = [
+                SystemMessage(content=recursive_memory_prompt),
+                HumanMessage(content="Consisely update the summary now. Third person, 5 sentences max.")
+            ]
+
+            try:
+                new_summary = raw_llm.invoke(sum_msgs).content
+                # Aggressive Pruning: Keep only the very last 2 messages for flow
+                # This ensures the next main agent call is lightweight
+                prune_msg = [RemoveMessage(id=m.id) for m in messages_state[:-2]]
+                graph.update_state(config, {"messages": prune_msg, "summary": new_summary})
+                logger.info(f"Thread {thread_id}: Memory compressed. Tokens saved.")
+                summary = new_summary
+            except Exception as e:
+                logger.error(f"Summarization recovery failed: {e}")
 
         # ---- INTENT DETECTION ----
         email_intent = detect_email_intent(user_message)
