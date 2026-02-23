@@ -9,6 +9,7 @@ eventlet
 # AI / LLM
 langchain
 langchain-groq
+langchain-google-genai
 langgraph
 langchain_community
 langgraph-checkpoint-sqlite

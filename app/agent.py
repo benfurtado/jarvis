@@ -157,6 +157,18 @@ def _has_email_intent(message: str) -> bool:
 # THREAD CONTEXT INJECTION
 # ============================================================
 
+# ============================================================
+# UTILITIES
+# ============================================================
+
+def trim_message_content(content: str, max_chars: int = 3000) -> str:
+    """Hard-cap message content to prevent TPM/413 errors."""
+    if not isinstance(content, str):
+        content = str(content)
+    if len(content) > max_chars:
+        return content[:max_chars] + f"\n\n[... content truncated; {len(content) - max_chars} chars removed for performance ...]"
+    return content
+
 def _inject_thread_context(thread_id: str, cwd: str = None):
     """Inject thread_id and cwd into thread-local storage for tools to access."""
     t = threading.current_thread()
@@ -195,53 +207,59 @@ def process_chat(graph, user_message: str, thread_id: str,
         messages_state = state.values.get("messages", [])
         summary = state.values.get("summary", "No previous memory.")
 
-        # If history gets too long (> 10 turns), compress it to prevent context overflow (400 error)
-        if len(messages_state) > 10:
-            logger.info(f"Thread {thread_id}: Context pressure high. Compressing memory...")
+        # If history gets too long or too large, compress it
+        total_estimate = sum(len(str(m.content)) for m in messages_state if hasattr(m, "content"))
+        
+        if len(messages_state) > 8 or total_estimate > 12000:
+            logger.info(f"Thread {thread_id}: Token pressure high ({total_estimate} chars). Summarizing...")
             
-            # Prune input to summarizer: context window safety
-            # If the history itself is massive, take only the last 15 messages for the summary update
-            sum_input = messages_state[-15:] if len(messages_state) > 15 else messages_state
-
-            # Use EXACT prompt from user request
+            # Prune input to summarizer and truncate contents to ensure the summary call succeeds
+            sum_input = messages_state[-10:] if len(messages_state) > 10 else messages_state
+            # Create a safe, trimmed version of the history for summarization
+            safe_history = []
+            for m in sum_input:
+                if isinstance(m, (HumanMessage, AIMessage, SystemMessage, ToolMessage)):
+                    # Clone and trim
+                    content = trim_message_content(str(m.content), 2000)
+                    if isinstance(m, HumanMessage): safe_history.append(HumanMessage(content=content))
+                    elif isinstance(m, AIMessage): safe_history.append(AIMessage(content=content))
+                    elif isinstance(m, ToolMessage): safe_history.append(ToolMessage(content=content, tool_call_id=m.tool_call_id))
+            
+            # Use rules to update memory
             recursive_memory_prompt = f"""You are updating a user's long-term memory summary.
 
 Existing summary:
 {summary}
 
-New conversation:
-{sum_input}
+New conversation data:
+{safe_history}
 
 Instructions:
 - Merge new important information into the existing summary
-- Keep it concise and factual
-- Remove outdated or conflicting info
-- Ignore small talk
-- Preserve important long-term facts
+- Keep it concise and factual (Max 5 sentences)
+- Preservation of long-term facts is priority.
 
 Output rules:
 - Max 5 sentences
 - Third person
-- Return only the updated summary"""
+- Return only the updated summary."""
 
-            raw_llm = RotatingLLM()
+            raw_llm = RotatingLLM(max_tokens=1000) # Small response limit for summary
             
-            # CRITICAL FIX: Ensure last message is 'user' for Groq
             sum_msgs = [
                 SystemMessage(content=recursive_memory_prompt),
-                HumanMessage(content="Consisely update the summary now. Third person, 5 sentences max.")
+                HumanMessage(content="Consisely update the summary now.")
             ]
 
             try:
                 new_summary = raw_llm.invoke(sum_msgs).content
-                # Aggressive Pruning: Keep only the very last 2 messages for flow
-                # This ensures the next main agent call is lightweight
-                prune_msg = [RemoveMessage(id=m.id) for m in messages_state[:-2]]
+                # Prune: keep only last message and maybe current state
+                prune_msg = [RemoveMessage(id=m.id) for m in messages_state[:-1]]
                 graph.update_state(config, {"messages": prune_msg, "summary": new_summary})
-                logger.info(f"Thread {thread_id}: Memory compressed. Tokens saved.")
+                logger.info(f"Thread {thread_id}: Memory compressed. Tokens reset.")
                 summary = new_summary
             except Exception as e:
-                logger.error(f"Summarization recovery failed: {e}")
+                logger.error(f"Summarization failed: {e}")
 
         # ---- INTENT DETECTION ----
         email_intent = detect_email_intent(user_message)
@@ -260,9 +278,14 @@ Output rules:
         if web_intent["has_intent"]:
             augmented_message += build_web_hint(web_intent)
 
+        # ---- AGGRESSIVE PAYLOAD TRIMMING ----
+        # Before invoking the graph, we ensure the current augmented_message 
+        # is safe. If it's huge, truncate it.
+        safe_message = trim_message_content(augmented_message, 4000)
+
         # Run the graph
         result = graph.invoke(
-            {"messages": [HumanMessage(content=augmented_message)]},
+            {"messages": [HumanMessage(content=safe_message)]},
             config=config,
         )
 

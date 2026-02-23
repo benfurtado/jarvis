@@ -20,6 +20,10 @@ class Config:
     JWT_SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=24)
 
+    # Gemini LLM
+    GEMINI_API_KEYS = [k.strip() for k in os.getenv("GEMINI_API_KEYS", "").split(",") if k.strip()]
+    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+
     # Groq LLM
     GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
     GROQ_API_KEYS = [k.strip() for k in os.getenv("GROQ_API_KEYS", GROQ_API_KEY).split(",") if k.strip()]
@@ -27,11 +31,10 @@ class Config:
     LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
     LLM_MODELS = [m.strip() for m in os.getenv("LLM_MODELS", (
         "llama-3.3-70b-versatile,"
-        "llama-3.1-70b-versatile,"
-        "llama-3.2-90b-vision-preview,"
-        "mixtral-8x7b-32768,"
+        "meta-llama/llama-4-scout-17b-16e-instruct,"
+        "qwen/qwen3-32b,"
         "llama-3.1-8b-instant,"
-        "gemma2-9b-it"
+        "groq/compound"
     )).split(",") if m.strip()]
 
     # Admin
