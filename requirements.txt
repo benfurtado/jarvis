@@ -10,6 +10,7 @@ eventlet
 langchain
 langchain-groq
 langchain-google-genai
+openai
 langgraph
 langchain_community
 langgraph-checkpoint-sqlite

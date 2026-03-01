@@ -23,6 +23,7 @@ class Config:
     # Gemini LLM
     GEMINI_API_KEYS = [k.strip() for k in os.getenv("GEMINI_API_KEYS", "").split(",") if k.strip()]
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    ENABLE_GEMINI = os.getenv("ENABLE_GEMINI", "true").strip().lower() == "true"
 
     # Groq LLM
     GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
@@ -36,6 +37,23 @@ class Config:
         "llama-3.1-8b-instant,"
         "groq/compound"
     )).split(",") if m.strip()]
+
+    # Azure AI Inference (OpenAI-compatible) — optional
+    # Endpoint format example:
+    #   https://<resource>.services.ai.azure.com/models/chat/completions
+    # Version example:
+    #   2024-05-01-preview
+    AZURE_AI_ENDPOINT = os.getenv("AZURE_AI_ENDPOINT", "").strip()
+    AZURE_AI_API_KEY = os.getenv("AZURE_AI_API_KEY", "").strip()
+    AZURE_AI_API_VERSION = os.getenv("AZURE_AI_API_VERSION", "2024-05-01-preview").strip()
+    AZURE_AI_MODEL = os.getenv("AZURE_AI_MODEL", "grok-4-1-fast-non-reasoning").strip()
+
+    # Azure OpenAI-compatible endpoint (OpenAI SDK) — optional
+    # Example base URL:
+    #   https://<resource>.openai.azure.com/openai/v1
+    AZURE_OPENAI_BASE_URL = os.getenv("AZURE_OPENAI_BASE_URL", "").strip()
+    AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "").strip()
+    AZURE_OPENAI_MODEL = os.getenv("AZURE_OPENAI_MODEL", "grok-4-1-fast-non-reasoning").strip()
 
     # Admin
     ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
