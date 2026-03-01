@@ -40,6 +40,25 @@
             color: #f87171;
         }
 
+        /* Chat overflow fixes: wrap long unbroken strings and allow code blocks to scroll */
+        #chat-messages, #chat-messages * {
+            min-width: 0;
+        }
+
+        #chat-messages .prose {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        #chat-messages .prose pre {
+            overflow-x: auto;
+            max-width: 100%;
+        }
+
+        #chat-messages .prose code {
+            word-break: break-word;
+        }
+
         .risk-medium {
             color: #fbbf24;
         }

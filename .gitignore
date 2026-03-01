@@ -8,6 +8,8 @@ env/
 
 # Environment
 .env
+.env.bak-*
+env.docx
 
 # Project specific
 temp/

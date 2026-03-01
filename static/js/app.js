@@ -299,7 +299,7 @@ function scrollChat() { chatContainer.scrollTop = chatContainer.scrollHeight; re
 
 function appendUserMessage(text) {
     const div = document.createElement('div'); div.className = 'flex gap-3 fade-up justify-end';
-    div.innerHTML = `<div class="max-w-[80%]"><div class="bg-dark-800 border border-dark-700 rounded-2xl p-4 text-white text-sm">${esc(text)}</div></div>
+    div.innerHTML = `<div class="max-w-[80%] min-w-0"><div class="bg-dark-800 border border-dark-700 rounded-2xl p-4 text-white text-sm">${esc(text)}</div></div>
         <div class="w-7 h-7 rounded-full bg-dark-700 flex-shrink-0 flex items-center justify-center text-gray-400 mt-1"><i class="fa-solid fa-user text-[10px]"></i></div>`;
     chatMessages.appendChild(div);
 }
@@ -372,7 +372,7 @@ function appendAIMessage(text, imgData = null, dlUrl = null, filename = null) {
     const msgId = 'ai-msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000000);
     const html = renderMarkdownSafe(text);
     div.innerHTML = `<div class="w-7 h-7 rounded bg-dark-800 border border-dark-700 flex-shrink-0 flex items-center justify-center text-accent-400 mt-1"><i class="fa-solid fa-robot text-[10px]"></i></div>
-        <div class="max-w-[80%]"><div id="${msgId}" class="prose prose-invert prose-sm text-gray-300">${html}${extra}</div></div>`;
+        <div class="max-w-[80%] min-w-0"><div id="${msgId}" class="prose prose-invert prose-sm text-gray-300">${html}${extra}</div></div>`;
     chatMessages.appendChild(div);
 
     ensureMarkdownLibs().then(() => {
