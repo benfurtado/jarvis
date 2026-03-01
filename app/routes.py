@@ -226,6 +226,35 @@ def get_settings():
 def update_settings():
     """Update global settings."""
     data = request.get_json(silent=True) or {}
+
+    gmail_creds = data.get("gmail_credentials_json")
+    if isinstance(gmail_creds, str) and gmail_creds.strip():
+        project_dir = os.path.dirname(os.path.dirname(__file__))
+        new_dir = os.path.join(project_dir, "credentials", "gmail")
+        old_dir = os.path.join(project_dir, "gmail_data")
+        data_dir = new_dir if (os.path.exists(os.path.join(new_dir, "credentials.json")) or os.path.exists(os.path.join(new_dir, "token.json"))) else old_dir
+        if not (os.path.exists(os.path.join(old_dir, "credentials.json")) or os.path.exists(os.path.join(old_dir, "token.json"))):
+            data_dir = new_dir
+        os.makedirs(data_dir, exist_ok=True)
+        creds_path = os.path.join(data_dir, "credentials.json")
+        try:
+            parsed = json.loads(gmail_creds)
+            with open(creds_path, "w") as f:
+                json.dump(parsed, f)
+        except Exception:
+            return jsonify({"error": "Invalid Gmail OAuth credentials JSON"}), 400
+
+        if data.get("gmail_reset_token") is True:
+            token_path = os.path.join(data_dir, "token.json")
+            try:
+                if os.path.exists(token_path):
+                    os.remove(token_path)
+            except OSError:
+                pass
+
+    if "gmail_reset_token" in data:
+        data.pop("gmail_reset_token", None)
+
     for key, value in data.items():
         db.set_config(key, value)
     return jsonify({"status": "success", "updated": list(data.keys())})

@@ -19,7 +19,17 @@ SCOPES = [
     "https://www.googleapis.com/auth/gmail.modify",
 ]
 
-_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "gmail_data")
+_PROJECT_DIR = os.path.dirname(os.path.dirname(__file__))
+_NEW_DATA_DIR = os.path.join(_PROJECT_DIR, "credentials", "gmail")
+_OLD_DATA_DIR = os.path.join(_PROJECT_DIR, "gmail_data")
+
+
+def _get_data_dir() -> str:
+    if os.path.exists(os.path.join(_NEW_DATA_DIR, "credentials.json")) or os.path.exists(os.path.join(_NEW_DATA_DIR, "token.json")):
+        return _NEW_DATA_DIR
+    if os.path.exists(os.path.join(_OLD_DATA_DIR, "credentials.json")) or os.path.exists(os.path.join(_OLD_DATA_DIR, "token.json")):
+        return _OLD_DATA_DIR
+    return _NEW_DATA_DIR
 
 
 @gmail_bp.route("/api/gmail/authorize")
@@ -36,9 +46,12 @@ def gmail_authorize():
 
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
-    creds_path = os.path.join(_DATA_DIR, "credentials.json")
+    data_dir = _get_data_dir()
+    os.makedirs(data_dir, exist_ok=True)
+
+    creds_path = os.path.join(data_dir, "credentials.json")
     if not os.path.exists(creds_path):
-        return jsonify({"error": f"credentials.json not found in {_DATA_DIR}/"}), 404
+        return jsonify({"error": f"credentials.json not found in {data_dir}/"}), 404
 
     # Build OAuth URL using the installed app flow with OOB-like redirect
     flow = InstalledAppFlow.from_client_secrets_file(creds_path, scopes=SCOPES)
@@ -51,7 +64,7 @@ def gmail_authorize():
     )
 
     # Store state
-    state_path = os.path.join(_DATA_DIR, "oauth_state.json")
+    state_path = os.path.join(data_dir, "oauth_state.json")
     with open(state_path, "w") as f:
         json.dump({"state": state}, f)
 
@@ -187,8 +200,11 @@ def gmail_callback():
     if not code:
         return jsonify({"error": "No authorization code provided. Go to /api/gmail/authorize"}), 400
 
-    creds_path = os.path.join(_DATA_DIR, "credentials.json")
-    token_path = os.path.join(_DATA_DIR, "token.json")
+    data_dir = _get_data_dir()
+    os.makedirs(data_dir, exist_ok=True)
+
+    creds_path = os.path.join(data_dir, "credentials.json")
+    token_path = os.path.join(data_dir, "token.json")
 
     if not os.path.exists(creds_path):
         return jsonify({"error": "credentials.json not found"}), 404
@@ -206,7 +222,7 @@ def gmail_callback():
             f.write(creds.to_json())
 
         # Clean up state file
-        state_path = os.path.join(_DATA_DIR, "oauth_state.json")
+        state_path = os.path.join(data_dir, "oauth_state.json")
         try:
             os.remove(state_path)
         except OSError:

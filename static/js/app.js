@@ -304,13 +304,82 @@ function appendUserMessage(text) {
     chatMessages.appendChild(div);
 }
 
+let _mdLoaderPromise = null;
+
+function _loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing) return resolve();
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('Failed to load ' + src));
+        document.head.appendChild(s);
+    });
+}
+
+function ensureMarkdownLibs() {
+    if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') return Promise.resolve();
+    if (_mdLoaderPromise) return _mdLoaderPromise;
+
+    _mdLoaderPromise = (async () => {
+        if (typeof marked === 'undefined') {
+            try { await _loadScriptOnce('https://cdn.jsdelivr.net/npm/marked/marked.min.js'); }
+            catch (e) { await _loadScriptOnce('https://unpkg.com/marked/marked.min.js'); }
+        }
+        if (typeof DOMPurify === 'undefined') {
+            try { await _loadScriptOnce('https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js'); }
+            catch (e) { await _loadScriptOnce('https://unpkg.com/dompurify@3.0.11/dist/purify.min.js'); }
+        }
+    })().catch(() => { /* ignore loader errors; we still have fallback */ });
+
+    return _mdLoaderPromise;
+}
+
+function basicMarkdownToHtml(mdText) {
+    const escaped = esc(String(mdText || ''));
+    const withCodeBlocks = escaped.replace(/```(\w+)?\n([\s\S]*?)```/g, (m, lang, code) => {
+        const cls = lang ? ` class="language-${lang}"` : '';
+        return `<pre><code${cls}>${code}</code></pre>`;
+    });
+    const withInlineCode = withCodeBlocks.replace(/`([^`]+)`/g, '<code>$1</code>');
+    const withBold = withInlineCode.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    const withItalic = withBold.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<em>$2</em>');
+    const withHeadings = withItalic
+        .replace(/^######\s+(.+)$/gm, '<h6>$1</h6>')
+        .replace(/^#####\s+(.+)$/gm, '<h5>$1</h5>')
+        .replace(/^####\s+(.+)$/gm, '<h4>$1</h4>')
+        .replace(/^###\s+(.+)$/gm, '<h3>$1</h3>')
+        .replace(/^##\s+(.+)$/gm, '<h2>$1</h2>')
+        .replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
+    return withHeadings.replace(/\n/g, '<br>');
+}
+
+function renderMarkdownSafe(text) {
+    try {
+        if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+            const rawHtml = marked.parse(String(text || ''), { breaks: true, gfm: true });
+            return DOMPurify.sanitize(rawHtml);
+        }
+    } catch (e) { /* fall through */ }
+    return basicMarkdownToHtml(text);
+}
+
 function appendAIMessage(text, imgData = null, dlUrl = null, filename = null) {
     const div = document.createElement('div'); div.className = 'flex gap-3 fade-up'; let extra = '';
     if (imgData) extra += `<div class="mt-3 rounded-lg overflow-hidden border border-dark-600"><img src="data:image/png;base64,${imgData}" class="max-w-full h-auto" /></div>`;
     if (dlUrl) extra += `<div class="mt-3"><a href="${dlUrl}" class="inline-flex items-center gap-2 px-4 py-2 bg-accent-500 hover:bg-accent-400 text-white text-xs rounded-lg transition-all"><i class="fa-solid fa-download text-[10px]"></i> Download ${esc(filename || 'file')}</a></div>`;
+    const msgId = 'ai-msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000000);
+    const html = renderMarkdownSafe(text);
     div.innerHTML = `<div class="w-7 h-7 rounded bg-dark-800 border border-dark-700 flex-shrink-0 flex items-center justify-center text-accent-400 mt-1"><i class="fa-solid fa-robot text-[10px]"></i></div>
-        <div class="max-w-[80%]"><div class="prose prose-invert prose-sm text-gray-300">${esc(text)}${extra}</div></div>`;
+        <div class="max-w-[80%]"><div id="${msgId}" class="prose prose-invert prose-sm text-gray-300">${html}${extra}</div></div>`;
     chatMessages.appendChild(div);
+
+    ensureMarkdownLibs().then(() => {
+        const el = document.getElementById(msgId);
+        if (!el) return;
+        el.innerHTML = `${renderMarkdownSafe(text)}${extra}`;
+    });
 }
 
 function appendLoading() {
@@ -1044,6 +1113,8 @@ async function refreshSettings() {
         document.getElementById('setting-smtp-port').value = s['smtp_port'] || '';
         document.getElementById('setting-smtp-user').value = s['smtp_user'] || '';
         document.getElementById('setting-smtp-pass').value = s['smtp_pass'] || '';
+        document.getElementById('setting-gmail-credentials').value = s['gmail_credentials_json'] || '';
+        document.getElementById('setting-gmail-reset-token').checked = false;
         document.getElementById('setting-wp-url').value = s['wp_url'] || '';
         document.getElementById('setting-wp-path').value = s['wp_path'] || '';
         document.getElementById('setting-groq-key').value = s['groq_key'] || '';
@@ -1060,6 +1131,8 @@ async function saveAllSettings() {
         'smtp_port': document.getElementById('setting-smtp-port').value.trim(),
         'smtp_user': document.getElementById('setting-smtp-user').value.trim(),
         'smtp_pass': document.getElementById('setting-smtp-pass').value.trim(),
+        'gmail_credentials_json': document.getElementById('setting-gmail-credentials').value.trim(),
+        'gmail_reset_token': document.getElementById('setting-gmail-reset-token').checked,
         'wp_url': document.getElementById('setting-wp-url').value.trim(),
         'wp_path': document.getElementById('setting-wp-path').value.trim(),
         'groq_key': document.getElementById('setting-groq-key').value.trim(),

@@ -28,7 +28,17 @@ SCOPES = [
     "https://www.googleapis.com/auth/gmail.modify",
 ]
 
-_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "gmail_data")
+_PROJECT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)))
+_NEW_DATA_DIR = os.path.join(_PROJECT_DIR, "credentials", "gmail")
+_OLD_DATA_DIR = os.path.join(_PROJECT_DIR, "gmail_data")
+
+
+def _get_data_dir() -> str:
+    if os.path.exists(os.path.join(_NEW_DATA_DIR, "credentials.json")) or os.path.exists(os.path.join(_NEW_DATA_DIR, "token.json")):
+        return _NEW_DATA_DIR
+    if os.path.exists(os.path.join(_OLD_DATA_DIR, "credentials.json")) or os.path.exists(os.path.join(_OLD_DATA_DIR, "token.json")):
+        return _OLD_DATA_DIR
+    return _NEW_DATA_DIR
 
 # Email validation regex
 EMAIL_VALIDATE_RE = re.compile(
@@ -46,14 +56,15 @@ def _get_gmail_service():
     except ImportError:
         return None, "ERROR: Gmail API packages not installed. Run: pip install google-api-python-client google-auth-oauthlib"
 
-    os.makedirs(_DATA_DIR, exist_ok=True)
-    creds_path = os.path.join(_DATA_DIR, "credentials.json")
-    token_path = os.path.join(_DATA_DIR, "token.json")
+    data_dir = _get_data_dir()
+    os.makedirs(data_dir, exist_ok=True)
+    creds_path = os.path.join(data_dir, "credentials.json")
+    token_path = os.path.join(data_dir, "token.json")
 
     if not os.path.exists(creds_path):
         return None, (
             "ERROR: Gmail OAuth2 not configured. "
-            f"Place your Google Cloud 'credentials.json' in {_DATA_DIR}/ "
+            f"Place your Google Cloud 'credentials.json' in {data_dir}/ "
             "then visit /api/gmail/authorize to complete the OAuth flow."
         )
 
@@ -95,8 +106,9 @@ def check_gmail_configured():
             "```\npip install google-api-python-client google-auth-oauthlib\n```"
         )
 
-    creds_path = os.path.join(_DATA_DIR, "credentials.json")
-    token_path = os.path.join(_DATA_DIR, "token.json")
+    data_dir = _get_data_dir()
+    creds_path = os.path.join(data_dir, "credentials.json")
+    token_path = os.path.join(data_dir, "token.json")
 
     if not os.path.exists(creds_path):
         return False, (
@@ -105,7 +117,7 @@ def check_gmail_configured():
             "1. Create a Google Cloud project at https://console.cloud.google.com\n"
             "2. Enable the Gmail API\n"
             "3. Create OAuth2 credentials (Desktop App type)\n"
-            f"4. Download `credentials.json` to `{_DATA_DIR}/`\n"
+            f"4. Download `credentials.json` to `{data_dir}/`\n"
             "5. Visit `/api/gmail/authorize` to complete the OAuth flow\n\n"
             "Once configured, Jarvis will send emails automatically."
         )

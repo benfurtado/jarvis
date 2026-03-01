@@ -103,14 +103,23 @@ fi
 echo -e "${YELLOW}[4/6]${NC} Setting up directories..."
 
 mkdir -p "$PROJECT_DIR/gmail_data"
+mkdir -p "$PROJECT_DIR/credentials/gmail"
 mkdir -p "$PROJECT_DIR/data"
 mkdir -p "$PROJECT_DIR/temp"
 mkdir -p "$PROJECT_DIR/backups"
 echo -e "  ${GREEN}✓${NC} Directories ready"
 
 # Check Gmail setup
-if [ -f "$PROJECT_DIR/gmail_data/credentials.json" ]; then
+if [ -f "$PROJECT_DIR/credentials/gmail/credentials.json" ]; then
     echo -e "  ${GREEN}✓${NC} Gmail credentials.json found"
+    if [ -f "$PROJECT_DIR/credentials/gmail/token.json" ]; then
+        echo -e "  ${GREEN}✓${NC} Gmail token.json found (authorized)"
+    else
+        echo -e "  ${YELLOW}⚠${NC} Gmail not authorized yet"
+        echo -e "    After startup, visit: ${CYAN}http://YOUR_IP:$PORT/api/gmail/authorize${NC}"
+    fi
+elif [ -f "$PROJECT_DIR/gmail_data/credentials.json" ]; then
+    echo -e "  ${GREEN}✓${NC} Gmail credentials.json found (legacy gmail_data/)"
     if [ -f "$PROJECT_DIR/gmail_data/token.json" ]; then
         echo -e "  ${GREEN}✓${NC} Gmail token.json found (authorized)"
     else
@@ -119,7 +128,7 @@ if [ -f "$PROJECT_DIR/gmail_data/credentials.json" ]; then
     fi
 else
     echo -e "  ${YELLOW}⚠${NC} Gmail not configured (optional)"
-    echo -e "    To enable: place credentials.json in gmail_data/"
+    echo -e "    To enable: paste credentials.json into Settings or place it in credentials/gmail/"
 fi
 
 # ============================================================

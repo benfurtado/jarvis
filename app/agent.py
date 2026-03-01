@@ -294,7 +294,12 @@ Output rules:
         response_text = last_ai_msg.content if last_ai_msg else ""
 
         # ---- FORCE-TOOL RE-PROMPTING ----
-        tool_was_called = any(isinstance(m, AIMessage) and getattr(m, "tool_calls", None) for m in messages)
+        # Some model/tooling stacks may not reliably expose tool_calls on AIMessage.
+        # If we see any ToolMessage in the transcript, we know a tool executed and
+        # should NOT force a retry (to avoid duplicate side-effects like double email sends).
+        tool_was_called = any(isinstance(m, ToolMessage) for m in messages) or any(
+            isinstance(m, AIMessage) and getattr(m, "tool_calls", None) for m in messages
+        )
         force_tool = _should_force_tool(user_message) or email_intent["has_intent"] or web_intent["has_intent"]
         
         if force_tool and not tool_was_called and response_text and len(response_text) > 10:

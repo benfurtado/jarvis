@@ -23,6 +23,18 @@ logger = logging.getLogger("Jarvis")
 # --- Gmail Service Singleton ---
 _gmail_service = None
 
+_PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+_NEW_DATA_DIR = os.path.join(_PROJECT_DIR, "credentials", "gmail")
+_OLD_DATA_DIR = os.path.join(_PROJECT_DIR, "gmail_data")
+
+
+def _get_data_dir() -> str:
+    if os.path.exists(os.path.join(_NEW_DATA_DIR, "credentials.json")) or os.path.exists(os.path.join(_NEW_DATA_DIR, "token.json")):
+        return _NEW_DATA_DIR
+    if os.path.exists(os.path.join(_OLD_DATA_DIR, "credentials.json")) or os.path.exists(os.path.join(_OLD_DATA_DIR, "token.json")):
+        return _OLD_DATA_DIR
+    return _NEW_DATA_DIR
+
 
 def get_gmail_service():
     """Get or create an authenticated Gmail API service."""
@@ -34,9 +46,14 @@ def get_gmail_service():
     logger.info("Initializing Gmail API service...")
     creds = None
 
-    if os.path.exists("token.json"):
+    data_dir = _get_data_dir()
+    os.makedirs(data_dir, exist_ok=True)
+    creds_path = os.path.join(data_dir, "credentials.json")
+    token_path = os.path.join(data_dir, "token.json")
+
+    if os.path.exists(token_path):
         try:
-            creds = Credentials.from_authorized_user_file("token.json", scopes)
+            creds = Credentials.from_authorized_user_file(token_path, scopes)
             logger.info("Loaded credentials from token.json")
         except Exception as e:
             logger.error(f"Error loading token.json: {e}")
@@ -51,18 +68,20 @@ def get_gmail_service():
                 creds = None
 
         if not creds:
-            if not os.path.exists("credentials.json"):
+            if not os.path.exists(creds_path):
                 logger.error("credentials.json missing!")
                 raise FileNotFoundError(
-                    "credentials.json not found. Place your OAuth client file in the project root."
+                    f"credentials.json not found. Place your OAuth client file in {data_dir}/ or paste it into Settings."
                 )
-            logger.info("Starting local OAuth server for authentication...")
-            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", scopes)
-            creds = flow.run_local_server(port=0)
+            logger.info("Gmail not authorized yet. Visit /api/gmail/authorize to complete OAuth flow.")
+            raise RuntimeError("Gmail not authorized. Visit /api/gmail/authorize")
 
-            with open("token.json", "w") as token:
+        try:
+            with open(token_path, "w") as token:
                 token.write(creds.to_json())
-                logger.info("Saved new credentials to token.json")
+                logger.info("Saved refreshed credentials to token.json")
+        except Exception:
+            pass
 
     _gmail_service = build("gmail", "v1", credentials=creds)
     logger.info("Gmail API service connected successfully.")
